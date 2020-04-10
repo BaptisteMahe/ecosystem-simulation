@@ -1,10 +1,18 @@
 class Boid {
     constructor() {
+        this.perception = {
+            alignment: 100,
+            cohesion: 30,
+            separation: 20
+        };
+        this.color = 255;
+        this.size = 8;
+
         this.position = createVector(random(width), random(height));
         this.velocity = p5.Vector.random2D();
         this.velocity.setMag(random(2, 4));
         this.acceleration = createVector();
-        this.maxForce = 0.2;
+        this.maxForce = 0.7;
         this.maxSpeed = 4;
     }
 
@@ -22,19 +30,25 @@ class Boid {
         }
     }
 
-    align(boids) {
-        let perceptionRadius = 50;
-        let steering = createVector();
-        let nbNeighbor = 0;
+    findNeighbors(boids, perceptionRadius) {
+        let neighbor = [];
         for (let other of boids) {
             let distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
             if (other != this && distance < perceptionRadius) {
-                steering.add(other.velocity);
-                nbNeighbor++;
+                neighbor.push(other);
             }
         }
-        if (nbNeighbor > 0) {
-            steering.div(nbNeighbor);
+        return neighbor;
+    }
+
+    alignment(boids) {
+        let steering = createVector();
+        let neighbors = this.findNeighbors(boids, this.perception.alignment);
+        for (let other of neighbors) {
+            steering.add(other.velocity);
+        }
+        if (neighbors.length) {
+            steering.div(neighbors.length);
             steering.setMag(this.maxSpeed);
             steering.sub(this.velocity);
             steering.limit(this.maxForce);
@@ -43,18 +57,13 @@ class Boid {
     }
 
     cohesion(boids) {
-        let perceptionRadius = 100;
         let steering = createVector();
-        let nbNeighbor = 0;
-        for (let other of boids) {
-            let distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && distance < perceptionRadius) {
-                steering.add(other.position);
-                nbNeighbor++;
-            }
+        let neighbors = this.findNeighbors(boids, this.perception.cohesion);
+        for (let other of neighbors) {
+            steering.add(other.position);
         }
-        if (nbNeighbor > 0) {
-            steering.div(nbNeighbor);
+        if (neighbors.length) {
+            steering.div(neighbors.length);
             steering.sub(this.position);
             steering.setMag(this.maxSpeed);
             steering.sub(this.velocity);
@@ -64,20 +73,16 @@ class Boid {
     }
 
     separation(boids) {
-        let perceptionRadius = 20;
         let steering = createVector();
-        let nbNeighbor = 0;
-        for (let other of boids) {
+        let neighbors = this.findNeighbors(boids, this.perception.separation);
+        for (let other of neighbors) {
+            let diff = p5.Vector.sub(this.position, other.position);
             let distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && distance < perceptionRadius) {
-                let diff = p5.Vector.sub(this.position, other.position);
-                diff.div(distance);
-                steering.add(diff);
-                nbNeighbor++;
-            }
+            diff.div(distance);
+            steering.add(diff);
         }
-        if (nbNeighbor > 0) {
-            steering.div(nbNeighbor);
+        if (neighbors.length) {
+            steering.div(neighbors.length);
             steering.setMag(this.maxSpeed);
             steering.sub(this.velocity);
             steering.limit(this.maxForce);
@@ -86,14 +91,11 @@ class Boid {
     }
 
     flock(boids) {
-        let alignment = this.align(boids);
+        let alignment = this.alignment(boids);
         let cohesion = this.cohesion(boids);
         let separation = this.separation(boids);
 
-        alignment.mult(alignmentSlider.value());
-        cohesion.mult(cohesionSlider.value());
-        separation.mult(separationSlider.value());
-
+        this.acceleration.set(0, 0);
         this.acceleration.add(alignment);
         this.acceleration.add(cohesion);
         this.acceleration.add(separation);
@@ -103,12 +105,11 @@ class Boid {
         this.position.add(this.velocity);
         this.velocity.add(this.acceleration);
         this.velocity.limit(this.maxSpeed);
-        this.acceleration.mult(0);
     }
 
     show() {
-        strokeWeight(8);
-        stroke(255);
+        strokeWeight(this.size);
+        stroke(this.color);
         point(this.position.x, this.position.y)
     }
 }
